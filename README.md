@@ -6,11 +6,13 @@
 </div>
 
 Welcome to **REALM**! This repository contains the implementation of REALM, for advanced computer vision tasks involving both traditional RGB and Event-based vision.
-If you use this code, please cite the following publication:
+
 
 <div align="center">
     <img src="media/demo_realm.gif" alt="demo" >
 </div>
+
+If you use this code, please cite the following publication:
 
 ```bibtex
 @misc{polizzi_2026_realm,
