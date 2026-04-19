@@ -1,0 +1,3 @@
+[submodule "realm/thirdparty/dust3r"]
+	path = realm/thirdparty/dust3r
+	url = https://github.com/naver/dust3r.git

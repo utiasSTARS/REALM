@@ -1,0 +1,15 @@
+**__pycache__/
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+**build/
+**egg-info/
+.vscode/
+third_party/
+results/
+checkpoints
+datasets
