@@ -25,6 +25,33 @@ If you use this code, please cite the following publication:
       url={https://arxiv.org/abs/}, 
 }
 ```
+
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#abstract">Abstract</a></li>
+    <li><a href="#-features">Features</a></li>
+    <li>
+      <a href="#️-installation">Installation</a>
+      <ul>
+        <li><a href="#1-create-a-conda-environment">Create a Conda Environment</a></li>
+        <li><a href="#2-install-requirements">Install Requirements</a></li>
+        <li><a href="#3-install-the-realm-package">Install the REALM Package</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#-usage">Usage</a>
+      <ul>
+        <li><a href="#1-import-and-use-realm-in-your-code">Import and Use REALM</a></li>
+        <li><a href="#2-running-evaluation-scripts">Running Evaluation Scripts</a></li>
+      </ul>
+    </li>
+    <li><a href="#-license">License</a></li>
+    <li><a href="#-acknowledgements">Acknowledgements</a></li>
+  </ol>
+</details>
+
 ---
 
 ## Abstract
