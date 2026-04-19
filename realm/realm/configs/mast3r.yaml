@@ -1,0 +1,26 @@
+base_checkpoint: "./checkpoints/dune_vitbase14_448_paper.pth"
+dune_checkpoint: "./checkpoints/dune_vitbase14_448_paper.pth"
+realm_checkpoint: "./checkpoints/REALM_final_rank32_0955116.pth"
+embedding:
+  num_bins: 5
+  patch_grid: 32
+  embed_dim: 768
+  base_channels: 64
+  num_downsample: 3
+  norm: "batch"
+  use_residual: True
+pretrained_head: "./checkpoints/heads/mast3r_decoder.pth"
+head: 
+  type: "mast3r"
+  enc_embed_dim: 768
+  dec_embed_dim: 768
+  dec_depth: 12
+  dec_num_heads: 12
+  mlp_ratio: 4
+  patch_embed_size: 14
+  norm_im2_in_dec: True
+  output_mode: "pts3d+desc24"
+  head_type: "catmlp+dpt"
+  landscape_only: False
+  two_confs: True
+

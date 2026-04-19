@@ -1,0 +1,54 @@
+base_checkpoint: "./checkpoints/dune_vitbase14_448_paper.pth"
+realm_checkpoint: "./checkpoints/REALM_final_rank32_0955116.pth"
+embedding:
+  num_bins: 5
+  patch_grid: 32
+  embed_dim: 768
+  base_channels: 64
+  num_downsample: 3
+  norm: "batch"
+  use_residual: True
+projector: 'dino2reg_vitlarge_14'
+pretrained_head: "./checkpoints/heads/segmentation.pth"
+head: 
+  type: "segmentation"
+  in_channels: 1024
+  num_classes: 11
+
+tiling:
+  input_height: 480
+  input_width: 640
+  tile_size: 448
+
+data:
+  batch_size: 32
+
+  datasets_config:
+    datasets:
+      - DSEC
+      
+    common:
+      events_representation: voxel_grid
+      nr_bins_per_data: 5
+      normalize_event: true
+      sequence_length: 1
+      target_size: [640, 480]
+      semseg_num_classes: 11
+
+    DSEC:
+      root: ./datasets/DSEC
+      n_ev: -1
+      ms_ev: 55
+      stride: 1
+      mask: false
+      segmentation: true
+      transforms:
+        - type: crop
+          params:
+            tl_corner: [0, 0]
+            br_corner: [640, 460]
+
+        - type: resize
+          params:
+            target_size: [480, 640]
+            keep_aspect_ratio: true
