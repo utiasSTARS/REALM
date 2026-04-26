@@ -25,4 +25,4 @@ head:
   two_confs: True
 
 data:
-  dataset_path: "./datasets/EDS"
+  dataset_path: "./datasets/robot-fast"

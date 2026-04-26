@@ -16,9 +16,14 @@ def build_dust3r_extensions():
         subprocess.check_call(['git', 'submodule', 'update', '--init', '--recursive'], cwd=root_dir)
 
     # 2. Build C++ extensions inside the folder
-    if os.path.exists(curope_dir):
-        print("Building the curope C++ extension...")
-        subprocess.check_call([sys.executable, 'setup.py', 'build_ext', '--inplace'], cwd=curope_dir)
+    try:
+        import torch
+        print(f"PyTorch version: {torch.__version__}")
+        if os.path.exists(curope_dir):
+            print("Building the curope C++ extension...")
+            subprocess.check_call([sys.executable, 'setup.py', 'build_ext', '--inplace'], cwd=curope_dir)
+    except ImportError:
+        print("PyTorch is not installed. Skipping curope extension build.")
 
 # Run the build step
 build_dust3r_extensions()

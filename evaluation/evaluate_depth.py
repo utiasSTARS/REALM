@@ -1,5 +1,5 @@
 """
-validate_depth.py — Production-ready depth evaluator for REALM models.
+validate_depth.py — depth evaluator for REALM models.
 
 Usage:
     python validate_depth.py --config configs/depth.yaml

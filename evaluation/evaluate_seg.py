@@ -1,5 +1,5 @@
 """
-validate_segmentation.py — Production-ready segmentation evaluator for REALM models.
+validate_segmentation.py — segmentation evaluator for REALM models.
 
 Usage:
     python validate_segmentation.py --config configs/segmentation.yaml

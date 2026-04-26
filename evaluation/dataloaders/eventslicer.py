@@ -69,7 +69,7 @@ class EventSlicer:
             return None
 
         events = dict()
-        time_array_conservative = np.asarray(self.events['t'][t_start_ms_idx:t_end_ms_idx])
+        time_array_conservative = np.asarray(self.events['t'][t_start_ms_idx:t_end_ms_idx], dtype='int64')
         idx_start_offset, idx_end_offset = self.get_time_indices_offsets(time_array_conservative, t_start_us, t_end_us)
         t_start_us_idx = t_start_ms_idx + idx_start_offset
         t_end_us_idx = t_start_ms_idx + idx_end_offset

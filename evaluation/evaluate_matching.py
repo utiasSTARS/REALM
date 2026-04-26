@@ -1,5 +1,5 @@
 """
-validate_matches.py — Production-ready matches robustness evaluator for REALM models.
+validate_matches.py — matches robustness evaluator for REALM models.
 
 Evaluates relative pose estimation on the VECtor dataset across a range of rotation
 magnitudes, reporting median error, accuracy, and AUC per rotation bin.
@@ -26,8 +26,8 @@ from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
 from tqdm import tqdm
 
-from realm.utils.transform import Resize, rescale_matches
-from realm.utils.vis import vis_matches, matches, voxel_to_rgb_image
+from realm.utils.transforms import Resize, rescale_matches
+from realm.utils.vis import vis_matches, matches, voxel_to_rgb_image, image_to_normalized_tensor
 from realm.model_factory import REALM_creator
 from dataloaders.vector_dataset import build_vector_datasets
 
@@ -55,7 +55,6 @@ def load_config(path: str) -> dict:
     with config_path.open("r") as fh:
         cfg = yaml.safe_load(fh)
     return cfg
-
 
 
 # ---------------------------------------------------------------------------
@@ -201,28 +200,108 @@ def plot_robustness_analysis(
     logger.info("Robustness plot saved → %s", out)
 
 
-def build_results_table(results: dict) -> str:
-    """Return a formatted per-rotation-bin summary string."""
+def calculate_auc(errors: np.ndarray, max_threshold: int) -> float:
+    """
+    Compute the Area Under the recall Curve up to *max_threshold* degrees.
+
+    The curve is sampled at every integer threshold 1, 2, …, max_threshold and
+    the mean recall is returned (normalised AUC, step=1°).
+
+    Args:
+        errors:        1-D array of per-frame rotation errors in degrees.
+        max_threshold: Upper threshold in degrees (inclusive).
+
+    Returns:
+        Scalar AUC in [0, 1].  Returns 0.0 for empty inputs.
+    """
+    if len(errors) == 0:
+        return 0.0
+    return float(np.mean([np.mean(errors < t) for t in range(1, max_threshold + 1)]))
+
+
+def build_results_table(results: dict, mode: str = "") -> str:
+    """
+    Return a formatted summary string with two sections:
+
+    Section 1 — fine-grained per-rotation-bin table (existing):
+        median error · Acc@5° · Acc@10° · AUC@20°
+
+    Section 2 — difficulty-binned AUC@10° table (new, matches paper Table 2):
+        Easy (0–15°) · Medium (15–30°) · Hard (30–45°) · Extreme (>45°)
+        with additional AUC@5° and AUC@20° columns for context.
+    """
     errors   = np.array(results["rot_error"])
     abs_rots = np.array(results["abs_rot"])
 
-    bins = [(0, 15), (15, 30), (30, 45), (45, 60), (60, 75), (75, 90), (90, 180)]
-    header = f"\n{'Rot bin':<12} | {'Count':<6} | {'Med. err':<10} | {'Acc@5°':<8} | {'Acc@10°':<8} | {'AUC@20°':<8}"
-    rows = [header, "-" * 75]
+    rows: list[str] = []
 
-    for start, end in bins:
-        mask = (abs_rots >= start) & (abs_rots < end)
+    # ------------------------------------------------------------------
+    # Section 1 — fine-grained per-bin breakdown
+    # ------------------------------------------------------------------
+    fine_bins = [(0, 15), (15, 30), (30, 45), (45, 60), (60, 75), (75, 90), (90, 180)]
+    rows.append(
+        f"\n{'Rot bin':<12} | {'Count':<6} | {'Med. err':<10} | "
+        f"{'Acc@5°':<8} | {'Acc@10°':<8} | {'AUC@20°':<8}"
+    )
+    rows.append("-" * 75)
+
+    for start, end in fine_bins:
+        mask     = (abs_rots >= start) & (abs_rots < end)
         bin_errs = errors[mask]
         if len(bin_errs) == 0:
             continue
-        label  = f"{start}-{end}°" if not (start == 0 and end == 180) else "TOTAL"
-        med    = np.median(bin_errs)
-        acc5   = np.mean(bin_errs < 5) * 100
-        acc10  = np.mean(bin_errs < 10) * 100
-        auc20  = float(np.mean([np.mean(bin_errs < t) for t in range(1, 21)]))
+        label = f"{start}-{end}°" if not (start == 0 and end == 180) else "TOTAL"
+        med   = np.median(bin_errs)
+        acc5  = calculate_auc(bin_errs, 5)
+        acc10 = calculate_auc(bin_errs, 10)
+        auc20 = calculate_auc(bin_errs, 20)
         rows.append(
-            f"{label:<12} | {len(bin_errs):<6} | {med:>8.2f}° | {acc5:>7.1f}% | {acc10:>7.1f}% | {auc20:>8.3f}"
+            f"{label:<12} | {len(bin_errs):<6} | {med:>8.2f}° | "
+            f"{acc5:>7.1f} | {acc10:>7.1f} | {auc20:>8.3f}"
         )
+
+    # ------------------------------------------------------------------
+    # Section 2 — difficulty-binned AUC@10° (paper Table 2 format)
+    # ------------------------------------------------------------------
+    difficulty_bins = [
+        (0,   15,  "Easy     (0–15°) "),
+        (15,  30,  "Medium  (15–30°) "),
+        (30,  45,  "Hard    (30–45°) "),
+        (45, 180,  "Extreme   (>45°) "),
+    ]
+
+    title = "Wide-Baseline Robustness — AUC@10° per difficulty bin"
+    if mode:
+        title += f"  [{mode}]"
+    rows.append(f"\n\n{title}")
+    rows.append(
+        f"\n{'Difficulty':<22} | {'Count':<6} | "
+        f"{'AUC@5°':<9} | {'AUC@10°':<9} | {'AUC@20°':<9}"
+    )
+    rows.append("-" * 70)
+
+    for start, end, label in difficulty_bins:
+        mask     = (abs_rots >= start) & (abs_rots < end)
+        bin_errs = errors[mask]
+        if len(bin_errs) == 0:
+            rows.append(f"{label:<22} | {'—':>6} | {'N/A':>9} | {'N/A':>9} | {'N/A':>9}")
+            continue
+        auc5  = calculate_auc(bin_errs,  5)
+        auc10 = calculate_auc(bin_errs, 10)
+        auc20 = calculate_auc(bin_errs, 20)
+        rows.append(
+            f"{label:<22} | {len(bin_errs):<6} | "
+            f"{auc5:>9.3f} | {auc10:>9.3f} | {auc20:>9.3f}"
+        )
+
+    # Overall row (all samples regardless of bin)
+    rows.append("-" * 70)
+    rows.append(
+        f"{'Overall':<22} | {len(errors):<6} | "
+        f"{calculate_auc(errors,  5):>9.3f} | "
+        f"{calculate_auc(errors, 10):>9.3f} | "
+        f"{calculate_auc(errors, 20):>9.3f}"
+    )
 
     return "\n".join(rows)
 
@@ -244,12 +323,12 @@ class MatchesValidator:
     * Results persisted as .txt summary and .npz archive
     """
 
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, args: argparse.Namespace, cfg: dict) -> None:
         self.args = args
         self.device = torch.device(args.device)
 
         # Config ---------------------------------------------------------------
-        self.cfg = load_config(args.config)
+        self.cfg = cfg
         eval_cfg: dict = self.cfg.get("evaluation", {})
 
         # Model ----------------------------------------------------------------
@@ -278,7 +357,7 @@ class MatchesValidator:
 
         # Output paths ---------------------------------------------------------
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        seq_name  = Path(args.dataset_path).name
+        seq_name  = Path(cfg['data']['dataset_path']).name
         run_tag   = f"matches_{self.model.model_type.value}_{seq_name}_{self.mode}_{timestamp}"
         self.output_dir = Path("results") / "matches" / run_tag
         self.img_dir    = self.output_dir / "imgs"
@@ -362,25 +441,11 @@ class MatchesValidator:
                         data_anchor, data_target, camera_dict_anchor, camera_dict, rel_rot_gt
                     )
 
-                # Mirror the original three-way failed counting:
-                #   1) len(matches) < 5        → else branch (no RANSAC attempted)
-                #   2) cv2.error during RANSAC → ransac_crashed flag
-                #   3) num_inliers < 5         → checked after RANSAC
-                # Cases 2 and 3 both fire for the same frame when RANSAC crashes
-                # (num_inliers stays 0), matching the original script's behaviour.
-                if len(kpts1) < 5:
+                if len(kpts1) < 5 or ransac_crashed or num_inliers < 5:
                     failed += 1
-                else:
-                    if ransac_crashed:
-                        failed += 1
-                    if num_inliers < 5:
-                        failed += 1
 
-                # Periodic visualisation — every vis_stride frames (unconditional,
-                # matching the original script which always wrote every 10th frame).
-                # Use vis keypoints (target_shape space) not the RANSAC-rescaled ones,
-                # matching the original which passes raw model output to vis_matches.
-                if counter % self.vis_stride == 0:
+                # Periodic visualisation
+                if self.args.save_vis and counter % self.vis_stride == 0:
                     self._save_match_vis(
                         data_anchor, data_target, kpts1_vis, kpts2_vis, inliers_mask, t_target
                     )
@@ -437,19 +502,21 @@ class MatchesValidator:
         """
         Run the REALM siamese forward pass and recover relative pose.
 
-        Returns:
-            (kpts1, kpts2, inliers_mask, num_inliers, rotation_error_deg, ransac_crashed)
-
-        ``ransac_crashed`` is True when poselib raises a cv2.error so the caller
-        can replicate the original script's failed-frame counting exactly.
-
         Returns an 8-tuple:
             (kpts1_vis, kpts2_vis,          ← raw model output, target_shape space
              kpts1_ransac, kpts2_ransac,    ← rescaled to original camera resolution
              inliers_mask, num_inliers, rotation_error_deg, ransac_crashed)
+
+        ``ransac_crashed`` is True when poselib raises a cv2.error so the caller
+        can replicate the original script's failed-frame counting exactly.
         """
-        view2 = data_target.unsqueeze(0).to(self.device)
-        res = self.model({"view1": data_anchor, "view2": view2})
+        view1, view2 = data_anchor, data_target
+        if self.mode[0] == 'i':
+            view1 = image_to_normalized_tensor(view1)
+        if self.mode[1] == 'i':
+            view2 = image_to_normalized_tensor(view2)
+        view2 = view2.unsqueeze(0).to(self.device)
+        res = self.model({"view1": view1, "view2": view2})
 
         res1, res2 = res
         desc1 = res1['desc'].squeeze(0).float()
@@ -493,17 +560,14 @@ class MatchesValidator:
                 if pose_result is not None:
                     inliers_mask = info["inliers"]
                     num_inliers  = int(np.sum(inliers_mask))
-                    # poselib quaternion: (w, x, y, z) → scipy: (x, y, z, w)
                     q = pose_result.q
                     est_rot = R.from_quat([q[1], q[2], q[3], q[0]])
                     error_deg = float(
                         np.linalg.norm((est_rot * rel_rot_gt.inv()).as_rotvec(degrees=True))
                     )
-            except cv2.error:
-                # Matches the original script's except cv2.error branch which
-                # increments failed and leaves num_inliers at 0.
+            except Exception:
                 ransac_crashed = True
-                logger.debug("cv2.error during pose recovery.", exc_info=True)
+                logger.debug("poselib failed during pose recovery.", exc_info=True)
 
         return mkpts1_vis, mkpts2_vis, mkpts1, mkpts2, inliers_mask, num_inliers, error_deg, ransac_crashed
 
@@ -605,7 +669,7 @@ class MatchesValidator:
 
     def _save_results(self, results: dict) -> None:
         """Print, log, and persist evaluation results."""
-        summary = build_results_table(results)
+        summary = build_results_table(results, mode=self.mode)
         logger.info(summary)
 
         txt_path = self.output_dir / f"matches_summary_{self.mode}_{self.timestamp}.txt"
@@ -715,5 +779,5 @@ if __name__ == "__main__":
         cfg=cfg,
     )
 
-    validator = MatchesValidator(args)
+    validator = MatchesValidator(args, cfg)
     validator.run(primary_dataset, anchor_dataset=anchor_dataset)
