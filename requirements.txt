@@ -1,0 +1,24 @@
+--find-links https://download.pytorch.org/whl/cu128
+
+torch==2.9.0
+torchvision==0.24.0
+
+matplotlib==3.10.8
+gradio==5.49.1
+gradio-client==1.13.3
+h5py==3.15.0
+hdf5plugin==6.0.0
+huggingface-hub==0.35.3
+markdown==3.9
+numpy==1.24.4
+tqdm==4.67.1
+typer==0.20.0
+wadler-lindig==0.1.7
+tabulate==0.10.0
+einops==0.8.2
+peft==0.19.1
+transformers==4.57.1
+poselib==2.0.5
+natsort==8.4.0
+numba==0.65.0
+huggingface_hub==0.35.3

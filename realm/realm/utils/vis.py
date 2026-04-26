@@ -321,7 +321,7 @@ def voxel_to_rgb_image(
     rgb[flat > 0] = torch.tensor([0.0, 0.0, 1.0])   # Blue  — positive
     rgb[flat < 0] = torch.tensor([1.0, 0.0, 0.0])   # Red   — negative
 
-    return rgb.numpy()
+    return rgb
 
 
 # ---------------------------------------------------------------------------

@@ -24,3 +24,5 @@ head:
   landscape_only: False
   two_confs: True
 
+data:
+  dataset_path: "./datasets/EDS"
