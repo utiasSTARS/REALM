@@ -84,7 +84,7 @@ Create and activate a new Conda environment (we recommend Python 3.10+):
 ```bash
 conda create -n realm python=3.10 -y
 conda activate realm
-conda install -y -c "nvidia/label/cuda-12.8.0" cuda-toolkit
+conda install -y -c "nvidia/label/cuda-12.8.0" cuda-toolkit=12.8 cuda-nvcc=12.8
 ```
 
 Check that the nvcc compiler is available and the CUDA version is 12.8:

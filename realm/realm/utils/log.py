@@ -12,7 +12,7 @@ Usage
     logger = get_logger("REALM", level=args.log_level)
     logo()
 """
-
+from __future__ import annotations
 import logging
 import os
 import sys
