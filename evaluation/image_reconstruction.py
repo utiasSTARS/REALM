@@ -1,20 +1,20 @@
 """
-validate_decoder_vector.py — qualitative reconstruction test for the trained ImageDecoder.
+image_reconstruction.py — qualitative reconstruction test for the REALM reconstruction head.
 
-Loads a frozen REALM encoder + trained ImageDecoder and runs reconstruction on
+Loads a REALM model (frozen encoder + trained reconstruction head, see
+``realm.heads.image_recon_head.ImageReconHead``) and runs reconstruction on
 VECtor event or RGB data.  Saves side-by-side panels:
     Events  model: [event preview  | reconstructed RGB]
     RGB     model: [input RGB      | reconstructed RGB]
     Hybrid  model: dispatched by channel count (same panels as above)
 
 Usage:
-    python validate_decoder_vector.py --config configs/encoder_only.yaml --checkpoint results/decoder/best_decoder.pt --dataset_path datasets/VECtor/robot-fast
-    python validate_decoder_vector.py --config configs/encoder_only.yaml --checkpoint results/decoder/best_decoder.pt --dataset_path datasets/VECtor/robot-fast --device cuda:1 --fp32
+    python evaluation/image_reconstruction.py --config realm/realm/configs/image_reconstruction_rgb.yaml --dataset_path datasets/VECtor/robot-fast
+    python evaluation/image_reconstruction.py --config realm/realm/configs/image_reconstruction_rgb.yaml --dataset_path datasets/VECtor/robot-fast --device cuda:1 --fp32
 """
 
 import argparse
 import logging
-import math
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -22,7 +22,6 @@ from typing import Optional
 import cv2
 import numpy as np
 import torch
-import torch.nn as nn
 import yaml
 from tqdm import tqdm
 
@@ -35,41 +34,7 @@ from realm.utils.log import get_logger
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.benchmark = False
 
-logger = get_logger("validate_decoder_vector", level=logging.INFO)
-
-
-# ---------------------------------------------------------------------------
-# Decoder  (must match the architecture used during training)
-# ---------------------------------------------------------------------------
-
-class ImageDecoder(nn.Module):
-    def __init__(self, num_tokens: int = 1024, token_dim: int = 768, target_size: int = 448):
-        super().__init__()
-        self.Ph = int(math.isqrt(num_tokens))
-        assert self.Ph ** 2 == num_tokens, "num_tokens must be a perfect square"
-
-        def block(c_in: int, c_out: int) -> nn.Sequential:
-            return nn.Sequential(
-                nn.Conv2d(c_in, c_out, 3, padding=1),
-                nn.BatchNorm2d(c_out),
-                nn.GELU(),
-            )
-
-        up = lambda: nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)
-
-        self.net = nn.Sequential(
-            block(token_dim, 512),   up(),   # 32 → 64
-            block(512, 256),         up(),   # 64 → 128
-            block(256, 128),         up(),   # 128 → 256
-            block(128, 64),
-            nn.Upsample(size=target_size, mode="bilinear", align_corners=False),  # 256 → 448
-            nn.Conv2d(64, 1, kernel_size=1),
-        )
-
-    def forward(self, patch_tokens: torch.Tensor) -> torch.Tensor:
-        B, N, C = patch_tokens.shape
-        x = patch_tokens.reshape(B, self.Ph, self.Ph, C).permute(0, 3, 1, 2).contiguous()
-        return self.net(x)
+logger = get_logger("image_reconstruction", level=logging.INFO)
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +68,7 @@ def to_uint8(tensor: torch.Tensor) -> np.ndarray:
 
 class DecoderVectorValidator:
     """
-    Run the trained ImageDecoder on VECtor data and save reconstruction panels.
+    Run a REALM reconstruction model on VECtor data and save reconstruction panels.
 
     Panel layout
     ------------
@@ -119,25 +84,9 @@ class DecoderVectorValidator:
         self.cfg    = load_config(args.config)
         self.cfg.setdefault("data", {})["dataset_path"] = args.dataset_path
 
-        # Encoder (frozen) -----------------------------------------------------
-        logger.info("Loading encoder...")
-        self.encoder = REALM_creator(self.cfg).to(self.device).eval()
-        for p in self.encoder.parameters():
-            p.requires_grad_(False)
-
-        # Decoder --------------------------------------------------------------
-        logger.info("Loading decoder from %s", args.checkpoint)
-        self.decoder = ImageDecoder(num_tokens=1024, token_dim=768, target_size=self.CROP).to(self.device)
-        def count_parameters(model):
-            return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-        total_params = count_parameters(self.decoder)
-        print(f"Total trainable parameters: {total_params:,}")
-
-        ckpt = torch.load(args.checkpoint, map_location=self.device)
-        self.decoder.load_state_dict(ckpt["decoder"])
-        self.decoder.eval()
-        logger.info("Decoder restored from epoch %d (val loss %.4f)", ckpt.get("epoch", -1), ckpt.get("val_loss", float("nan")))
+        # REALM model (frozen encoder + trained reconstruction head) -----------
+        logger.info("Loading model...")
+        self.model = REALM_creator(self.cfg).to(self.device).eval()
 
         self.use_amp: bool = not args.fp32
         logger.info("Using %s inference.", "AMP" if self.use_amp else "FP32")
@@ -145,7 +94,7 @@ class DecoderVectorValidator:
         # Output dirs ----------------------------------------------------------
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         seq_name  = Path(args.dataset_path).name
-        self.vis_dir = Path("results") / "decoder_vector" / f"{seq_name}_{timestamp}" / "imgs"
+        self.vis_dir = Path("results") / "image_reconstruction" / f"{seq_name}_{timestamp}" / "imgs"
         self.vis_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Saving frames → %s", self.vis_dir)
 
@@ -155,7 +104,7 @@ class DecoderVectorValidator:
 
     @torch.no_grad()
     def run(self) -> None:
-        is_event_model = self.encoder.model_type in (ModelType.Events, ModelType.Hybrid)
+        is_event_model = self.model.model_type in (ModelType.Events, ModelType.Hybrid)
 
         # VECtor dataset returns (timestamp, voxel) for events,
         # (timestamp, voxel, image) for ee+rgb modes.
@@ -207,8 +156,7 @@ class DecoderVectorValidator:
             inp = raw_tensor.unsqueeze(0).to(self.device)   # (1, C, H, W)
 
             with autocast_ctx:
-                patch_tokens = self.encoder(inp)["x_norm_patchtokens"]  # (1, 1024, 768)
-                pred         = self.decoder(patch_tokens)                # (1, 3, H, W)
+                pred = self.model(inp)  # (1, out_channels, H, W)
 
             # Build the left panel (input preview)
             if is_event_model:
@@ -278,13 +226,11 @@ class DecoderVectorValidator:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Test trained ImageDecoder on VECtor data.",
+        description="Test the REALM reconstruction head on VECtor data.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--config",        default="realm/realm/configs/encoder_only.yaml",
-                        help="REALM YAML config (must match the one used during training).")
-    parser.add_argument("--checkpoint",    default="/home/viciopoli/checkpoints/mast3r/heads/img_recon_rgb.pth",
-                        help="Path to best_decoder.pt saved by train_decoder.py.")
+    parser.add_argument("--config",        default="realm/realm/configs/image_reconstruction_rgb.yaml",
+                        help="REALM YAML config, including the reconstruction head and its pretrained weights.")
     parser.add_argument("--dataset_path",  default="/home/viciopoli/datasets/TUM_VIE/VECtor/hdr_fast/",
                         help="Path to the VECtor sequence directory.")
     parser.add_argument("--device",        default="cuda")
@@ -298,7 +244,7 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args   = parse_args()
-    logger = get_logger("validate_decoder_vector", level=args.log_level)
+    logger = get_logger("image_reconstruction", level=args.log_level)
 
     validator = DecoderVectorValidator(args)
     validator.run()

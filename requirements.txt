@@ -10,7 +10,7 @@ h5py==3.15.0
 hdf5plugin==6.0.0
 huggingface-hub==0.35.3
 markdown==3.9
-numpy==1.24.4
+numpy==1.26.4
 tqdm==4.67.1
 typer==0.20.0
 wadler-lindig==0.1.7
@@ -22,3 +22,4 @@ poselib==2.0.5
 natsort==8.4.0
 numba==0.65.0
 huggingface_hub==0.35.3
+opencv-python==5.0.0.93

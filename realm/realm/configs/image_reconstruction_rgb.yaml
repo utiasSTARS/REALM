@@ -1,0 +1,21 @@
+base_checkpoint: "./checkpoints/dune_vitbase14_448_paper.pth"
+realm_checkpoint: "./checkpoints/REALM_final_rank32_0955116.pth"
+# dune_checkpoint: "./checkpoints/dune_vitbase14_448_paper.pth"
+embedding:
+  num_bins: 5
+  patch_grid: 32
+  embed_dim: 768
+  base_channels: 64
+  num_downsample: 3
+  norm: batch
+  use_residual: True
+pretrained_head: "./checkpoints/heads/img_recon_rgb.pth"
+head:
+  type: reconstruction
+  num_tokens: 1024
+  token_dim: 768
+  target_size: 448
+  out_channels: 3
+
+data:
+  dataset_path: "/home/viciopoli/datasets/TUM_VIE/VECtor/hdr_fast/"

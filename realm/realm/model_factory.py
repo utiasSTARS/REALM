@@ -95,7 +95,11 @@ def _build_head(config: dict) -> nn.Module:
         return None
     head = head_factory(config["head"])
     ckpt = _load_checkpoint(config["pretrained_head"], "head")
-    head.load_state_dict(ckpt["model_state_dict"], strict=True)
+    # Most heads are saved under "model_state_dict"; heads trained with their
+    # own standalone training script (e.g. the reconstruction head) may use a
+    # different key (e.g. "decoder").
+    state_dict = ckpt.get("model_state_dict", ckpt.get("decoder", ckpt))
+    head.load_state_dict(state_dict, strict=True)
     logger.info("Head loaded from: %s", config["pretrained_head"])
     return head
 
