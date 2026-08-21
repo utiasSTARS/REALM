@@ -15,14 +15,11 @@ Welcome to **REALM**! This repository contains the implementation of REALM, for 
 If you use this code, please cite the following publication:
 
 ```bibtex
-@misc{polizzi_2026_realm,
-      title={REALM: RGB and Event Aligned Latent Manifold}, 
+@inproceedings{polizzi_2026_realm,
+      title={REALM: An RGB- and Event-Aligned Latent Manifold for Cross-Modal Perception}, 
       author={Vincenzo Polizzi and David B. Lindell and Jonathan Kelly},
-      year={2026},
-      eprint={},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/}, 
+      booktitle={European Conference on Computer Vision (ECCV)},
+      year={2026}
 }
 ```
 
