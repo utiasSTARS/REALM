@@ -91,6 +91,8 @@ def _load_checkpoint(path: str | Path, component: str) -> dict[str, Any]:
 
 
 def _build_head(config: dict) -> nn.Module:
+    if "head" not in config:
+        return None
     head = head_factory(config["head"])
     ckpt = _load_checkpoint(config["pretrained_head"], "head")
     head.load_state_dict(ckpt["model_state_dict"], strict=True)
@@ -140,7 +142,19 @@ def _build_event_encoder(config: dict) -> nn.Module | None:
         modules_to_save=lora_cfg.get("modules_to_save", None),
     )
 
+    logger.info(f"Model name: {HF_REPO}")
+    logger.info(f"LoRA rank: {lora_cfg.get('rank', 16)}")
+    logger.info(f"LoRA target_modules: {lora_cfg.get('target_modules', ['qkv'])}")
+
     wrapped = get_peft_model(_EncoderWrapper(encoder), peft_config)
+    trainable_params = sum(p.numel() for p in wrapped.parameters() if p.requires_grad)
+    all_params = sum(p.numel() for p in wrapped.parameters())
+    logger.info(
+        "LoRA params: %s | Total params: %s | Trainable: %.2f%%",
+        f"{trainable_params:,}",
+        f"{all_params:,}",
+        100 * trainable_params / all_params,
+    )
     wrapped.load_state_dict(ckpt["model_state_dict"], strict=True)
     merged = wrapped.merge_and_unload()
 

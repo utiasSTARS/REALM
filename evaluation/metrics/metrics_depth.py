@@ -11,7 +11,7 @@ def squ_rel_diff(y_input, y_target, eps=1e-6):
     abs_diff = np.abs(y_target - y_input)
     valid = ~np.isnan(abs_diff) & ~np.isnan(y_target) & (y_target > eps)
     if not np.any(valid): return 0.0
-    return (abs_diff[valid]**2 / (y_target[valid])).mean()
+    return (abs_diff[valid]**2 / (y_target[valid])**2).mean() # Looks like people do not use Eigen definition...
 
 def rms_linear(y_input, y_target):
     abs_diff = np.abs(y_target - y_input)
@@ -25,13 +25,6 @@ def rms_log(y_input, y_target, eps=1e-6):
     if not np.any(valid): return 0.0
     log_diff = np.log(y_target[valid]) - np.log(y_input[valid])
     return np.sqrt((log_diff**2).mean())
-
-def threshold_accuracy(y_input, y_target, threshold=1.25, eps=1e-6):
-    valid = ~np.isnan(y_input) & ~np.isnan(y_target) & (y_target > eps) & (y_input > eps)
-    if not np.any(valid): return 0.0
-    
-    thresh = np.maximum((y_target[valid] / y_input[valid]), (y_input[valid] / y_target[valid]))
-    return (thresh <= threshold).mean()
 
 def mean_error_at_range(y_input, y_target, max_range):
     """Calculates Mean Absolute Error (MAE) for pixels where ground truth <= max_range."""
@@ -99,7 +92,7 @@ class MetricsDepth:
                 self.metrics_accum[full_key] = 0.0
             self.metrics_accum[full_key] += v * batch_size
 
-    def update_batch(self, y_hat, y, event_mask=None):
+    def update_batch(self, y_hat, y, event_mask=None, valid_count=None):
         with torch.no_grad():
             if torch.is_tensor(y_hat): y_hat = y_hat.detach().cpu().numpy()
             if torch.is_tensor(y): y = y.detach().cpu().numpy()
@@ -120,8 +113,10 @@ class MetricsDepth:
                 if event_mask.ndim == 4 and event_mask.shape[1] == 1: event_mask = event_mask.squeeze(1)
                 base_mask = base_mask & (event_mask > 0)
 
+            count_to_add = valid_count if valid_count is not None else y_hat.shape[0]
+
             global_metrics = self._compute_metrics_for_mask(y_hat, y, base_mask)
-            self._add_to_accum("", global_metrics, batch_size)
+            self._add_to_accum("", global_metrics, count_to_add)
 
             for dist in self.ranges:
                 # Target must be <= dist AND still respect the base_mask (which enforces >= 2m)
@@ -135,9 +130,9 @@ class MetricsDepth:
                 err_key = f"err_{int(dist)}m"
                 if err_key not in self.metrics_accum:
                     self.metrics_accum[err_key] = 0.0
-                self.metrics_accum[err_key] += mae * batch_size
+                self.metrics_accum[err_key] += mae * count_to_add
 
-            self.count += batch_size
+            self.count += count_to_add
 
     def get_metrics_summary(self):
         if self.count == 0:

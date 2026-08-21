@@ -33,8 +33,10 @@ def voxel_to_rgb_image(
     if voxel_grid_tensor.shape[0] <= 3:
         print("Input tensor has 3 or fewer channels; expected voxel grid with multiple temporal bins.")
         return voxel_grid_tensor
-
-    grid = voxel_grid_tensor.detach().cpu()
+    if not isinstance(voxel_grid_tensor, torch.Tensor):
+        grid = torch.from_numpy(voxel_grid_tensor)
+    else:
+        grid = voxel_grid_tensor.detach().cpu()
 
     flat_grid = grid.sum(dim=0)
 

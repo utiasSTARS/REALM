@@ -169,16 +169,22 @@ class DepthValidator:
 
     def run(self, sequences: list[str]) -> None:
         """Evaluate over a list of sequence folder names."""
+        all_metrics: list[dict] = []
         for seq in sequences:
             logger.info("=== Evaluating sequence: %s ===", seq)
-            self._run_sequence(Path(seq))
+            metrics = self._run_sequence(Path(seq))
+            if metrics is not None:
+                all_metrics.append(metrics)
+
+        if len(all_metrics) > 1:
+            self._print_overall_results(all_metrics)
 
     # ------------------------------------------------------------------
     # Per-sequence loop
     # ------------------------------------------------------------------
 
     @torch.no_grad()
-    def _run_sequence(self, folder: Path) -> None:
+    def _run_sequence(self, folder: Path) -> Optional[dict]:
         loader = self._build_loader(folder)
         if loader is None:
             return
@@ -245,11 +251,12 @@ class DepthValidator:
             B = pred_np.shape[0]
             metric_preds = np.zeros_like(pred_np)
             metric_gts   = np.zeros_like(gt_np)
+            valid_count  = 0
 
             for i in range(B):
                 p = pred_np[i]
                 t = gt_np[i]
-                invalid_mask = t <= 0
+                invalid_mask = (t <= 0) | (t < self.metrics_evaluator.min_depth) | (t > self.metrics_evaluator.max_depth)
 
                 # Skip frames where every GT pixel is invalid
                 if invalid_mask.all():
@@ -304,8 +311,9 @@ class DepthValidator:
                 p_metric[invalid_mask] = 0.0
                 metric_gts[i]   = t
                 metric_preds[i] = p_metric
+                valid_count += 1
 
-            self.metrics_evaluator.update_batch(metric_preds, metric_gts)
+            self.metrics_evaluator.update_batch(metric_preds, metric_gts, valid_count=valid_count)
 
             del voxels, images, depths, pred, pred_padded
             torch.cuda.empty_cache()
@@ -325,6 +333,8 @@ class DepthValidator:
 
         if vis_dir is not None:
             self._create_video(vis_dir)
+
+        return self.metrics_evaluator.get_metrics_summary()  
 
     # ------------------------------------------------------------------
     # DataLoader builder
@@ -431,7 +441,10 @@ class DepthValidator:
 
         table_data = [
             ["Abs Rel",      f"{metrics['abs_rel']:.4f}"],
+            ["Sq Rel",       f"{metrics['sq_rel']:.4f}"],
             ["RMSE",         f"{metrics['rmse']:.4f}"],
+            ["RMSE log",     f"{metrics['rmse_log']:.4f}"],
+            ["SILog",        f"{metrics['silog']:.4f}"],
             ["d1 (<1.25)",   f"{metrics['a1']:.4f}"],
             ["d2 (<1.25²)",  f"{metrics['a2']:.4f}"],
             ["d3 (<1.25³)",  f"{metrics['a3']:.4f}"],
@@ -458,6 +471,47 @@ class DepthValidator:
         except OSError as exc:
             logger.warning("Could not write results file: %s", exc)
 
+    def _print_overall_results(self, all_metrics: list[dict]) -> None:
+        """Compute and report mean metrics across all evaluated sequences."""
+        if not all_metrics:
+            return
+
+        # Simple mean across sequences (each sequence weighted equally)
+        keys = all_metrics[0].keys()
+        mean_metrics = {k: sum(m[k] for m in all_metrics) / len(all_metrics) for k in keys}
+
+        n = len(all_metrics)
+        table_data = [
+            ["Abs Rel",      f"{mean_metrics['abs_rel']:.4f}"],
+            ["Sq Rel",       f"{mean_metrics['sq_rel']:.4f}"],
+            ["RMSE",         f"{mean_metrics['rmse']:.4f}"],
+            ["RMSE log",     f"{mean_metrics['rmse_log']:.4f}"],
+            ["SILog",        f"{mean_metrics['silog']:.4f}"],
+            ["d1 (<1.25)",   f"{mean_metrics['a1']:.4f}"],
+            ["d2 (<1.25²)",  f"{mean_metrics['a2']:.4f}"],
+            ["d3 (<1.25³)",  f"{mean_metrics['a3']:.4f}"],
+            ["Err 10m",      f"{mean_metrics.get('err_10m', 0.0):.4f}"],
+            ["Err 20m",      f"{mean_metrics.get('err_20m', 0.0):.4f}"],
+            ["Err 30m",      f"{mean_metrics.get('err_30m', 0.0):.4f}"],
+        ]
+
+        sep = "=" * 50
+        output = "\n".join([
+            f"\n{sep}",
+            f"   OVERALL RESULTS — mean across {n} sequence(s)",
+            sep,
+            tabulate(table_data, headers=["Metric", "Value"], tablefmt="grid"),
+            sep,
+        ])
+
+        logger.info(output)
+
+        try:
+            with self.results_txt_path.open("a") as fh:
+                fh.write(output + "\n")
+            logger.info("Overall results appended to %s", self.results_txt_path)
+        except OSError as exc:
+            logger.warning("Could not write overall results: %s", exc)
 
 # ---------------------------------------------------------------------------
 # CLI
