@@ -12,5 +12,6 @@ from realm.heads.head_factory import head_factory, available_heads
 from realm.heads.depth_head import LinearDepthHead
 from realm.heads.seg_head import SegHead
 from realm.heads.mast3r.mast3r_head import Mast3rDecoder
+from realm.heads.image_recon_head import ImageReconHead
 
-__all__ = ["head_factory", "available_heads", "LinearDepthHead", "SegHead", "Mast3rDecoder"]
+__all__ = ["head_factory", "available_heads", "LinearDepthHead", "SegHead", "Mast3rDecoder", "ImageReconHead"]

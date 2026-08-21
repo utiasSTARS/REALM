@@ -16,9 +16,10 @@ Maps the ``type`` key in a head config dictionary to the corresponding
 
 Supported head types
 --------------------
-* ``"depth"``        → :class:`~realm.heads.depth_head.LinearDepthHead`
-* ``"segmentation"`` → :class:`~realm.heads.seg_head.SegHead`
-* ``"mast3r"``       → :class:`~realm.heads.mast3r.mast3r_head.Mast3rDecoder`
+* ``"depth"``          → :class:`~realm.heads.depth_head.LinearDepthHead`
+* ``"segmentation"``   → :class:`~realm.heads.seg_head.SegHead`
+* ``"mast3r"``         → :class:`~realm.heads.mast3r.mast3r_head.Mast3rDecoder`
+* ``"reconstruction"`` → :class:`~realm.heads.image_recon_head.ImageReconHead`
 
 Usage
 -----
@@ -35,6 +36,7 @@ from typing import TYPE_CHECKING
 import torch.nn as nn
 
 from realm.heads.depth_head import LinearDepthHead
+from realm.heads.image_recon_head import ImageReconHead
 from realm.heads.mast3r.mast3r_head import Mast3rDecoder
 from realm.heads.seg_head import SegHead
 from realm.utils.log import get_logger
@@ -49,9 +51,10 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 _HEAD_REGISTRY: dict[str, type[nn.Module]] = {
-    "depth":        LinearDepthHead,
-    "segmentation": SegHead,
-    "mast3r":       Mast3rDecoder,
+    "depth":          LinearDepthHead,
+    "segmentation":   SegHead,
+    "mast3r":         Mast3rDecoder,
+    "reconstruction": ImageReconHead,
 }
 
 
