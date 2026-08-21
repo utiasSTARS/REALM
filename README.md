@@ -74,7 +74,15 @@ We demonstrate that **REALM** effectively maps events into the ViT-based foundat
 
 We highly recommend using Conda to manage your python environment. Follow the steps below to install all dependencies and the `realm` package.
 
-### 1. Create a Conda Environment
+### 1. Clone the Repository
+First, clone the repository and navigate into the project directory:
+
+```bash
+git clone --recursive https://github.com/utiasSTARS/REALM.git
+cd REALM
+```
+
+### 2. Create a Conda Environment
 
 Create and activate a new Conda environment (we recommend Python 3.10+):
 
@@ -90,7 +98,7 @@ Check that the nvcc compiler is available and the CUDA version is 12.8:
 nvcc --version # should show CUDA 12.8
 ```
 
-### 2. Install Requirements
+### 3. Install Requirements
 
 Install the dependencies from the `requirements.txt` file located at the root of the repository:
 
@@ -98,7 +106,7 @@ Install the dependencies from the `requirements.txt` file located at the root of
 pip install -r requirements.txt
 ```
 
-### 3. Install the REALM Package
+### 4. Install the REALM Package
 
 Navigate into the `realm` directory and install the core package:
 
