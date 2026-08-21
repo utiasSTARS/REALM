@@ -165,11 +165,18 @@ The `evaluation/` directory contains scripts for evaluating the performance of R
 
 ```bash
 python evaluation/evaluate_depth.py
-python evaluation/evaluate_segmentation.py
+python evaluation/evaluate_seg.py
 python evaluation/evaluate_matching.py
 ```
 
-To store the visualization of the results, pass the `--save-visuals` flag, results will be saved under `results/`.
+To store the visualization of the results, pass the `--save_vis` flag, results will be saved under `results/`.
+
+To run the image reconstruction demo (event or RGB input reconstructed back into an image via the `reconstruction` head), run:
+
+```bash
+python evaluation/image_reconstruction.py --config realm/realm/configs/image_reconstruction_rgb.yaml --dataset_path <path/to/VECtor/sequence>
+python evaluation/image_reconstruction_llff.py --config realm/realm/configs/image_reconstruction.yaml --dataset_path <path/to/ev-deblurnerf/sequence>
+```
 
 To run a quick feature matching test between some events and an RGB image, run the following script:
 
