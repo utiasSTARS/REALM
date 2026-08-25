@@ -13,3 +13,4 @@ third_party/
 results/
 checkpoints
 datasets
+*.zip

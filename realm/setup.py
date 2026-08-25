@@ -16,6 +16,9 @@ def build_dust3r_extensions():
         subprocess.check_call(['git', 'submodule', 'update', '--init', '--recursive'], cwd=root_dir)
 
     # 2. Build C++ extensions inside the folder
+    # Requires `pip install --no-build-isolation .` so this sees the torch/CUDA
+    # toolkit already installed in the active environment. Best-effort: REALM
+    # falls back to a pure-PyTorch RoPE implementation if this doesn't run.
     try:
         import torch
         print(f"PyTorch version: {torch.__version__}")
@@ -24,9 +27,28 @@ def build_dust3r_extensions():
             subprocess.check_call([sys.executable, 'setup.py', 'build_ext', '--inplace'], cwd=curope_dir)
     except ImportError:
         print("PyTorch is not installed. Skipping curope extension build.")
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: failed to build the curope extension ({e}). "
+              "Continuing without it; REALM will fall back to a slower pure-PyTorch RoPE implementation.")
 
 # Run the build step
 build_dust3r_extensions()
+
+def read_requirements():
+    # Reuse the pinned versions from the repo-level requirements.txt so that
+    # `pip install .` and `pip install git+...#subdirectory=realm` pull in the
+    # full, version-matched dependency set instead of just bare torch/numpy.
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    req_path = os.path.join(root_dir, os.pardir, 'requirements.txt')
+    requirements = []
+    if os.path.exists(req_path):
+        with open(req_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or line.startswith('--'):
+                    continue
+                requirements.append(line)
+    return requirements or ['torch', 'numpy']
 
 # Run standard setup
 setup(
@@ -34,8 +56,5 @@ setup(
     version="0.1",
     packages=find_packages(),
     include_package_data=True, # This tells pip to read the MANIFEST.in file
-    install_requires=[
-        'torch',
-        'numpy',
-    ],
+    install_requires=read_requirements(),
 )

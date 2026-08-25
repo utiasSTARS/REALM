@@ -112,8 +112,10 @@ Navigate into the `realm` directory and install the core package:
 
 ```bash
 cd realm
-pip install .
+pip install --no-build-isolation .
 ```
+
+`--no-build-isolation` is required so the build can see the `torch`/CUDA toolkit you already installed in steps 2–3, which lets it compile the optional `curope` CUDA extension (used by the DUSt3R/CroCo backbone for fast rotary position embeddings). Without it, pip builds in an isolated environment with no `torch` available, so the extension is silently skipped and REALM falls back to a slower pure-PyTorch RoPE implementation — it still works, just slower.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
