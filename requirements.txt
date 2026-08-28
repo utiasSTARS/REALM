@@ -4,7 +4,7 @@ torch==2.9.0
 torchvision==0.24.0
 
 matplotlib==3.10.8
-gradio==5.49.1
+gradio==6.13.0
 gradio-client==1.13.3
 h5py==3.15.0
 hdf5plugin==6.0.0
