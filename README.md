@@ -13,7 +13,7 @@
     <img src="https://img.shields.io/badge/Paper-arXiv-B31B1B?style=for-the-badge&logo=arxiv&logoColor=white" alt="Paper" />
   </a>
   <a href="https://viciopoli-realm-demo.hf.space/" target="_blank" rel="noreferrer">
-    <img src="https://img.shields.io/badge/Hugging%20Face-Demo-FFD21F?style=for-the-badge&logo=huggingface&logoColor=black" alt="Hugging Face Demo" />
+    <img src="https://img.shields.io/badge/Hugging%20Face-Demo-FFD21F?style=for-the-badge&logo=huggingface&logoColor=white" alt="Hugging Face Demo" />
   </a>
 </div>
 
