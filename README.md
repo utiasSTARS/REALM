@@ -5,6 +5,18 @@
   <h1 style="color: #ffffff; margin-top: 20px;">RGB and Event Aligned Latent Manifold</h1>
 </div>
 
+<div align="center" style="margin: 22px 0 28px;">
+  <a href="https://papers.starslab.ca/realm/" target="_blank" rel="noreferrer">
+    <img src="https://img.shields.io/badge/Website-REALM-0A84FF?style=for-the-badge&logo=globe&logoColor=white" alt="Website" />
+  </a>
+  <a href="https://arxiv.org/abs/2605.00271" target="_blank" rel="noreferrer" style="margin-left: 8px; margin-right: 8px;">
+    <img src="https://img.shields.io/badge/Paper-arXiv-B31B1B?style=for-the-badge&logo=arxiv&logoColor=white" alt="Paper" />
+  </a>
+  <a href="https://viciopoli-realm-demo.hf.space/" target="_blank" rel="noreferrer">
+    <img src="https://img.shields.io/badge/Hugging%20Face-Demo-FFD21F?style=for-the-badge&logo=huggingface&logoColor=black" alt="Hugging Face Demo" />
+  </a>
+</div>
+
 Welcome to **REALM**! This repository contains the implementation of REALM, for advanced computer vision tasks involving both traditional RGB and Event-based vision.
 
 
@@ -185,14 +197,15 @@ python evaluation/image_reconstruction.py --config realm/realm/configs/image_rec
 python evaluation/image_reconstruction_llff.py --config realm/realm/configs/image_reconstruction.yaml --dataset_path <path/to/ev-deblurnerf/sequence>
 ```
 
-To run a quick feature matching test between some events and an RGB image, run the following script:
-
+To run a quick feature matching demo between any two inputs — RGB images and/or event voxel grids (`.npy`), in any combination (image↔image, event↔event, or image↔event) — run:
 
 ```bash
-python realm/realm/model_factory.py
+python evaluation/demo_matching.py --input1 <path/to/view1> --input2 <path/to/view2>
 ```
 
-Expect to see the following image under `test/`:
+Run it with no arguments to try it on the bundled test files (an event voxel grid matched against an RGB image); the result is saved to `results/demo_matching.png`. See `python evaluation/demo_matching.py --help` for all options (config, device, target resolution, number of matches drawn, output path).
+
+Expect to see something like the following image:
 <div align="center">
     <img src="test/smoke_test_result.png" alt="demo" >
 </div>
